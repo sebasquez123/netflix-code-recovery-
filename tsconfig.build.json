@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "sourceMap": true,
+    "removeComments": true,
+    "noEmit": false,
+    "incremental": true,
+    "tsBuildInfoFile": "./dist/tsbuildinfo.json",
+    "outDir": "./dist",
+    "rootDir": "./src"
+  },
+  "extends": "./tsconfig.json",
+  "exclude": [
+    "src/cli/**/*",
+    "tests/**/*"
+  ]
+}

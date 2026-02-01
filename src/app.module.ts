@@ -1,0 +1,53 @@
+import { Module, ValidationPipe } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
+
+import { CodeRequestModule } from '~/modules/code-request-module/code-request.module';
+import { OauthRegistryModule } from '~/modules/oauth-registry-artifact-module/oauth-registry-artifact.module';
+import { SheetAzureModule } from '~/modules/sheet-azure-module/sheet-azure.module';
+import { HttpExceptionFilter } from '~/shared/filters/http-exception.filter';
+import { AuthGuard } from '~/shared/guards/auth.guard';
+import { HttpModule } from '~/shared/http/http.module';
+
+import { PrismaService } from './databaseSql/prisma.service';
+import { StorageModule } from './databaseSql/storage.module';
+import { HealthCheckProbesModule } from './modules/health-check-probes-module/health-check-probes.module';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
+    }),
+    SheetAzureModule,
+    OauthRegistryModule,
+    CodeRequestModule,
+    HealthCheckProbesModule,
+    HttpModule,
+    StorageModule,
+  ],
+  exports: [PrismaService],
+  providers: [
+    PrismaService,
+    {
+      provide: APP_FILTER,
+      useClass: HttpExceptionFilter,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: AuthGuard,
+    },
+    {
+      provide: APP_PIPE,
+      useValue: new ValidationPipe({
+        whitelist: false,
+        transform: true,
+        forbidNonWhitelisted: false,
+        transformOptions: {
+          enableImplicitConversion: false,
+        },
+      }),
+    },
+  ],
+})
+export class AppModule {}

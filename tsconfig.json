@@ -1,0 +1,55 @@
+{
+  //  "extends": [ @todo fix to use extends
+  //    "@tsconfig/strictest/tsconfig",
+  //    "@tsconfig/node20/tsconfig"
+  //  ],
+  "compilerOptions": {
+    "strict": true,
+    "allowUnusedLabels": false,
+    "allowUnreachableCode": false,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": true,
+    "isolatedModules": true,
+    "checkJs": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "lib": [
+      "es2023"
+    ],
+    "resolveJsonModule": true,
+    "module": "node16",
+    "target": "es2022",
+    "moduleResolution": "node16",
+    "allowJs": false,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "noEmit": true,
+    "baseUrl": "./",
+    "paths": {
+      "~/*": [
+        "./src/*"
+      ]
+    },
+    "ignoreDeprecations": "5.0",
+    "jsx": "react-jsx"
+  },
+  "include": [
+    "**/*/.eslintrc.js",
+    "**/*/schema.eslintrc.js",
+    "src/**/*",
+    "tests/**/*",
+    "tests-e2e/**/*"
+  ],
+  "ts-node": {
+    "require": [
+      "tsconfig-paths/register"
+    ]
+  }
+}
