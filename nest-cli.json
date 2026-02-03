@@ -2,15 +2,7 @@
   "collection": "@nestjs/schematics",
   "compilerOptions": {
     "deleteOutDir": true,
-    "tsConfigPath": "tsconfig.build.json",
-    "plugins": [
-      {
-        "name": "@nestjs/graphql",
-        "options": {
-          "typeFileNameSuffix": [".type.ts", ".input.ts", ".args.ts"]
-        }
-      }
-    ]
+    "tsConfigPath": "tsconfig.build.json"
   },
   "sourceRoot": "src"
 }

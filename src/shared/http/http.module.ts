@@ -11,6 +11,6 @@ import { HttpClientService } from './http-client.service';
     }),
   ],
   providers: [HttpClientService],
-  exports: [HttpClientService, NestHttpModule],
+  exports: [HttpClientService],
 })
 export class HttpModule {}

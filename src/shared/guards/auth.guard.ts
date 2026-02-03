@@ -4,12 +4,18 @@ import { Reflector } from '@nestjs/core';
 import { verify, VerifyOptions } from 'jsonwebtoken';
 
 import config from '~/config';
+import { errorCodes } from '~/error.commands';
 import { LoggerService } from '~/logger';
 import { isPublicSymbol } from '~/shared/decorators/public';
 
-const artifactSignature = config.app.artifactSignature;
+const sessionSignature = config.app.sessionSignature;
 const artifactOfAndre = config.app.artifactKey;
 
+interface requestWithHeaders {
+  headers: {
+    authorization: string | undefined;
+  };
+}
 @Injectable()
 export class AuthGuard implements CanActivate {
   private readonly logger = new LoggerService();
@@ -27,34 +33,35 @@ export class AuthGuard implements CanActivate {
     }
 
     try {
-      const request = context.switchToHttp().getRequest<Request>();
-      const authHeader = request.headers?.get?.('authorization') as string | undefined;
+      const request: requestWithHeaders = context.switchToHttp().getRequest();
+      const authHeader = request.headers.authorization;
+
       const parts = authHeader?.split(' ') ?? [];
       const tokenType = parts[0];
       const token = parts[1];
 
       if (tokenType !== 'Bearer' || !token) {
         this.logger.warn('AuthGuard: Invalid token, denying access');
-        return false;
+        throw new BadRequestException('Invalid token format');
       }
 
       const decodedToken = decodeURIComponent(token);
       const verifyOptions: VerifyOptions = {
         algorithms: ['HS256'],
-        ignoreExpiration: true,
+        ignoreExpiration: false,
       };
-      const result = verify(decodedToken, artifactSignature, verifyOptions) as { artifact: string };
+      const result = verify(decodedToken, sessionSignature, verifyOptions) as { artifact: string };
 
       if (result?.artifact !== artifactOfAndre) {
         this.logger.warn('AuthGuard: Invalid artifact, denying access');
-        throw new BadRequestException('Invalid token, denying access');
+        throw new BadRequestException('Invalid artifact');
       }
 
       this.logger.log('AuthGuard: Authenticated successfully, can proceed');
       return true;
     } catch (error) {
       this.logger.error('AuthGuard: Error during authentication', (error as Error).message, 'AuthGuard');
-      return false;
+      throw new BadRequestException(errorCodes.MISSING_PORTAL_ACCESS.errorcode);
     }
   }
 }

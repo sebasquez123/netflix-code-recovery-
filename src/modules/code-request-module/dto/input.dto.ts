@@ -1,4 +1,4 @@
-import { IsEmail } from 'class-validator';
+import { IsNotEmpty, IsString } from 'class-validator';
 import { z } from 'zod';
 
 export const linkZodVerification = z.object({
@@ -6,6 +6,7 @@ export const linkZodVerification = z.object({
 });
 
 export class EmailCaptureDto {
-  @IsEmail()
+  @IsString()
+  @IsNotEmpty()
   email!: string;
 }

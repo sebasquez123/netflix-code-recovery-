@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { StorageModule } from '~/databaseSql/storage.module';
 import { LoggerService } from '~/logger';
 import { HttpModule } from '~/shared/http/http.module';
 
@@ -12,7 +13,7 @@ import { CodeRequestService } from './code-request.service';
 @Module({
   controllers: [CodeRequestController],
   providers: [CodeRequestService, LoggerService],
-  imports: [HttpModule, OauthRegistryModule, SheetAzureModule],
+  imports: [HttpModule, OauthRegistryModule, SheetAzureModule, StorageModule],
   exports: [CodeRequestService],
 })
 export class CodeRequestModule {}

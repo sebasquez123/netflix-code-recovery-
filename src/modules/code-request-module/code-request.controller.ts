@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Param, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Param, Post } from '@nestjs/common';
 
 import { LoggerService } from '~/logger';
 import { Public } from '~/shared/decorators/public';
@@ -9,13 +9,13 @@ import { CodeRequestOutputDto } from './dto/output.dto';
 
 @Controller('netflix')
 export class CodeRequestController {
-  constructor(
-    private readonly codeRequestService: CodeRequestService,
-    private readonly logger: LoggerService
-  ) {}
+  private logger;
+  constructor(private readonly codeRequestService: CodeRequestService) {
+    this.logger = new LoggerService();
+  }
   @Public()
-  @Post('capture/:email')
-  async introspectEmail(@Param('email') email: EmailCaptureDto): Promise<CodeRequestOutputDto> {
+  @Post('capture')
+  async introspectEmail(@Body() email: EmailCaptureDto): Promise<CodeRequestOutputDto> {
     try {
       const result = await this.codeRequestService.azureEmailIntrospection(email);
       return result;

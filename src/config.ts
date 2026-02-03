@@ -18,7 +18,8 @@ export default {
     appUrl: process.env['APP_URL']!,
     apiUrl: process.env['API_URL']!,
     artifactKey: process.env['ARTIFACT_KEY']!,
-    artifactSignature: process.env['ARTIFACT_SIGNATURE']!,
+    sessionSignature: process.env['SESSION_SIGNATURE']!,
+    gateSignature: process.env['GATE_SIGNATURE']!,
   },
   log: {
     level: process.env['LOG_LEVEL']! as Level,
@@ -31,6 +32,7 @@ export default {
     excelItemId: process.env['EXCEL_ITEM_ID']!,
     excelWorksheet: process.env['EXCEL_WORKSHEET']!,
     excelDriveId: process.env['EXCEL_DRIVE_ID']!,
-    minutesForRefresh: Number.parseInt(process.env['MINUTES_FOR_REFRESH']!),
+    maxReadRange: process.env['MAX_READ_RANGE']!,
+    maxReadNetflixEmails: Number.parseInt(process.env['MAX_READ_NETFLIX_EMAILS']!),
   },
 } as const;

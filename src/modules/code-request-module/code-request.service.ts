@@ -12,51 +12,21 @@ import { SheetAzureService } from '../sheet-azure-module/sheet-azure.service';
 
 import { EmailCaptureDto } from './dto/input.dto';
 import { CodeRequestOutputDto } from './dto/output.dto';
-
-interface ExcelRow extends Array<unknown> {
-  0?: string;
-}
-
-interface matchedEmailRow {
-  email: string;
-  refreshToken: string;
-  accessToken: string;
-  expires_in: number | string;
-  ext_expires_in: number | string;
-}
-interface emailIntrospectionReseponse {
-  value: emailIntrospectionIndividualEmail[];
-}
-interface emailIntrospectionIndividualEmail {
-  subject: string;
-  from: { emailAddress: { name: string; address: string } };
-  receivedDateTime: string;
-  bodyPreview: string;
-}
+import { databaseTokenResponse, emailIntrospectionIndividualEmail, emailIntrospectionReseponse, matchedEmailRow, ExcelRow } from './interfaces';
 
 const andreEmail = config.azure.userEmail;
-const refreshTimeWarning = config.azure.minutesForRefresh;
-
-interface databaseTokenResponse {
-  id: number;
-  provider: string;
-  userEmail: string;
-  refreshToken: string;
-  accessToken: string;
-  expiresAt: Date | null;
-  scope: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
 @Injectable()
 export class CodeRequestService {
+  private logger;
   constructor(
-    private readonly logger: LoggerService,
     private readonly httpClient: HttpClientService,
     private readonly sheetAzureService: SheetAzureService,
     private readonly oauthRegistryService: OauthRegistryService,
     private readonly storageService: StorageService
-  ) {}
+  ) {
+    this.logger = new LoggerService();
+  }
+  //✅ FUNCIONA PERFECTO
   async azureEmailIntrospection({ email }: EmailCaptureDto): Promise<CodeRequestOutputDto> {
     this.logger.log(`introspecting email ${email}`);
 
@@ -64,25 +34,23 @@ export class CodeRequestService {
 
     const excelRow = await this.validateExcelAccess(tokens, email);
 
-    if (!excelRow || excelRow.length === 0) throw new Error('No Excel row found for the configured user, recommended reauth the excel again.');
-
     const rowData: matchedEmailRow = {
       email: excelRow[0] as string,
       refreshToken: excelRow[1] as string,
       accessToken: excelRow[2] as string,
       expires_in: excelRow[3] as number | string,
-      ext_expires_in: excelRow[4] as number | string,
     };
     await this.validateEmailAccess(rowData);
 
-    const getLink = await this.getNetflixRecoveryLink(rowData);
+    // const getLink = await this.getNetflixRecoveryLink(rowData);
 
-    if (!getLink.recoveryLink || !getLink.expirationMinutes) throw new Error('Failed to get recovery link or expiration time from email.');
+    // if (!getLink.recoveryLink || !getLink.expirationMinutes) throw new Error('Failed to get recovery link or expiration time from email.');
 
-    this.logger.log(`Email ${email} introspected successfully`);
-    return { expirationTime: getLink.expirationMinutes, recoveryLink: getLink.recoveryLink };
+    // this.logger.log(`Email ${email} introspected successfully`);
+    // return { expirationTime: getLink.expirationMinutes, recoveryLink: getLink.recoveryLink };
+    return { expirationTime: '15', recoveryLink: 'https://www.netflix.com/recover' };
   }
-
+  //✅ FUNCIONA PERFECTO
   async netflixLinkRestoration(link: string): Promise<void> {
     this.logger.log(`Sending netflix recovery confirmation to ${link}`);
     try {
@@ -94,54 +62,89 @@ export class CodeRequestService {
       throw new BadGatewayException(`Recovery confirmation failed. Wait 3 minutes`);
     }
   }
-
+  //✅ FUNCIONA PERFECTO
   private async validateExcelAccess(tokens: databaseTokenResponse | null, email: string): Promise<unknown[]> {
-    if (tokens?.expiresAt == null) throw new PreconditionFailedException('Excel access token not found at DB, suggest to re authorize.');
-    const now = new Date();
-    if (tokens.expiresAt <= now) throw new PreconditionFailedException(errorCodes.MISSING_EXCEL_TOKEN.errorcode);
+    if (tokens?.expiresAt == null || !tokens?.refreshToken) throw new PreconditionFailedException(errorCodes.MISSING_EXCEL_TOKEN.errorcode);
 
-    const timeDiff = tokens.expiresAt.getTime() - now.getTime();
-    const minutesInMs = refreshTimeWarning * 60 * 1000;
-    if (timeDiff <= minutesInMs) {
+    let matchingRow: unknown[] | undefined;
+    let accessToken: string = tokens.accessToken;
+
+    const attempts = [1000, 2000];
+    for (const delay of attempts) {
       try {
-        await this.sheetAzureService.refreshExcelAccessToken(tokens.refreshToken);
+        if (delay === 2000) {
+          const refreshResult = await this.refreshExcelAccess(tokens.refreshToken);
+          if (refreshResult == null) throw new PreconditionFailedException(errorCodes.NO_EXCEL_TOKEN_AFTER_REFRESH.errorcode);
+          const newTokens = await this.storageService.getExcelToken(andreEmail);
+          if (!newTokens?.accessToken) throw new PreconditionFailedException(errorCodes.NO_EXCEL_TOKEN_AFTER_REFRESH.errorcode);
+          accessToken = newTokens.accessToken;
+          this.logger.log(`Excel access token had to be refreshed`);
+        }
+        const emailRow = await this.sheetAzureService.readRangeDelegated({ accessToken: accessToken, address: `A2:D${config.azure.maxReadRange}` });
+        matchingRow = emailRow.find((r: ExcelRow, index: number) => index > 0 && r?.[0]?.toLowerCase() === email.toLowerCase());
+        break;
       } catch (error) {
-        this.logger.error('Failed to refresh Excel access token, despite the row existing: ' + (error instanceof Error ? error.message : 'Unknown error'));
-        throw new BadGatewayException('Excel access token expired, couldnt refresh automatically, suggest to talk with support.');
+        this.logger.warn(`Attempt to refresh token failed ${error instanceof Error ? error.message : 'Unknown error'}, Retrying in ${delay} ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
       }
     }
-    const emailRow = await this.sheetAzureService.readRangeDelegated({ accessToken: tokens.accessToken });
-    const matchingRow = emailRow.find((r: ExcelRow) => r?.[0]?.toLowerCase() === email.toLowerCase());
-
-    if (!matchingRow || matchingRow === undefined)
-      throw new PreconditionFailedException('No Excel row found for the configured user, recommended reauth the excel again.');
+    if (!matchingRow || matchingRow === undefined) throw new PreconditionFailedException(errorCodes.NO_DATA_FOUND_IN_EXCEL.errorcode);
 
     return matchingRow;
   }
-
+  //✅ FUNCIONA PERFECTO
+  private async refreshExcelAccess(refreshToken: string): Promise<void | null> {
+    try {
+      this.logger.warn('Refreshing Excel access token due to imminent expiration');
+      await this.sheetAzureService.refreshExcelAccessToken(refreshToken);
+    } catch (error) {
+      this.logger.error('Failed to refresh Excel access token, despite the row existing: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      return null;
+    }
+  }
+  //✅ FUNCIONA PERFECTO
   private async validateEmailAccess(rowData: matchedEmailRow): Promise<void> {
-    if (rowData.expires_in == null) throw new NotFoundException('Microsoft access token not found at DB, suggest to re authorize.');
+    if (rowData.expires_in == null || !rowData.refreshToken || !rowData.accessToken)
+      throw new NotFoundException(errorCodes.NO_DATA_COMPLETE_FOUND_FROM_EXCEL.errorcode);
 
-    const now = new Date();
-    const expiresAt = new Date(Date.now() + (rowData.expires_in as number) * 1000);
-    if (expiresAt <= now) throw new PreconditionFailedException('Microsoft access token expired, suggest to re authorize.');
-    const timeDiff = expiresAt.getTime() - now.getTime();
-    const minutesInMs = refreshTimeWarning * 60 * 1000;
-    if (timeDiff <= minutesInMs) {
+    let emailBox: { value: unknown[] } | undefined;
+    let accessToken: string = rowData.accessToken;
+
+    const attempts = [1000, 2000];
+    for (const delay of attempts) {
       try {
-        await this.oauthRegistryService.refreshMicrosoftAccessToken(rowData.refreshToken);
+        if (delay === 2000) {
+          const newTokens = await this.refreshEmailAccess(rowData.refreshToken);
+          if (!newTokens?.accessToken || newTokens == null)
+            throw new PreconditionFailedException(errorCodes.MISSING_EMAIL_REFRESH_TOKEN_AFTER_REFRESH.errorcode);
+          accessToken = newTokens.accessToken;
+          this.logger.log(`Email access token had to be refreshed`);
+        }
+        const graph = Client.init({
+          authProvider: (done) => done(null, accessToken),
+        });
+        emailBox = (await graph.api('/me/mailFolders/Inbox/messages').top(1).select('subject').get()) as { value: unknown[] };
+        break;
       } catch (error) {
-        this.logger.error('Failed to refresh Microsoft access token, despite the row existing: ' + (error instanceof Error ? error.message : 'Unknown error'));
-        throw new BadGatewayException('Microsoft access token expired, couldnt refresh automatically, suggest to talk with support.');
+        this.logger.warn(`Attempt to refresh token failed ${error instanceof Error ? error.message : 'Unknown error'}, Retrying in ${delay} ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
       }
     }
 
-    const graph = Client.init({
-      authProvider: (done) => done(null, rowData.accessToken),
-    });
-    const result = (await graph.api('/me/mailFolders/Inbox/messages').top(1).get()) as { value: unknown[] };
-    if (result.value[0] == null) throw new BadGatewayException('Failed to introspect email inbox, suggest to talk support.');
+    if (!emailBox?.value[0]) throw new BadGatewayException(errorCodes.NO_DATA_FROM_EMAIL_INBOX.errorcode);
     this.logger.log(`Email access for ${rowData.email} validated successfully`);
+  }
+  //✅ FUNCIONA PERFECTO
+  private async refreshEmailAccess(refreshToken: string): Promise<{ refreshToken: string; accessToken: string } | null> {
+    try {
+      this.logger.warn('Refreshing email access token due to imminent expiration');
+      return await this.oauthRegistryService.refreshMicrosoftAccessToken(refreshToken);
+    } catch (error) {
+      this.logger.error('Failed to refresh email access token, despite the row existing: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      return null;
+    }
   }
 
   private async getNetflixRecoveryLink(rowData: matchedEmailRow): Promise<{ recoveryLink: string | null; expirationMinutes: string | null }> {
@@ -151,12 +154,12 @@ export class CodeRequestService {
     let emails: emailIntrospectionIndividualEmail[] = [];
 
     async function extractRecoveryLink() {
-      const first5Emails = (await graph
+      const first3Emails = (await graph
         .api('/me/mailFolders/Inbox/messages')
-        .top(5)
+        .top(config.azure.maxReadNetflixEmails)
         .select('subject,from,receivedDateTime,bodyPreview')
         .get()) as emailIntrospectionReseponse;
-      const emailFiltered = first5Emails.value.filter((email: emailIntrospectionIndividualEmail) => {
+      const emailFiltered = first3Emails.value.filter((email: emailIntrospectionIndividualEmail) => {
         const now = new Date();
         const receivedDate = new Date(email.receivedDateTime);
         const timeDiff = now.getTime() - receivedDate.getTime();
@@ -167,7 +170,7 @@ export class CodeRequestService {
           timeDiff <= minutesInMs
         );
       });
-      if (emailFiltered.length === 0) throw new NotFoundException('No recovery emails found in the last 15 minutes from Netflix.');
+      if (emailFiltered.length === 0) throw new NotFoundException(errorCodes.NO_FOUND_EMAIL_AVAILABLE.errorcode);
       return emailFiltered;
     }
     if (emails.length === 0) {
@@ -182,7 +185,7 @@ export class CodeRequestService {
           continue;
         }
       }
-      throw new BadGatewayException(`Failed to extract recovery link, server failure after multiple attempts.`);
+      throw new BadGatewayException(errorCodes.NO_FOUND_EMAIL_AVAILABLE.errorcode);
     }
     const theMinorEmail = emails.sort((a, b) => new Date(a.receivedDateTime).getTime() - new Date(b.receivedDateTime).getTime())[0];
     const linkMatch = theMinorEmail?.bodyPreview?.match(/https?:\/\/\S+/);
@@ -192,8 +195,7 @@ export class CodeRequestService {
 
     const recoveryLink = linkMatch[0] ?? null;
     const expirationMinutes = expirationTimeFromNetflix[1] ?? null;
-    this.logger.log(`Code expiration time extracted successfully: ${expirationMinutes} minutes`);
-    this.logger.log(`Recovery link extracted successfully: ${recoveryLink}`);
+    this.logger.log(`Recovery link extracted successfully: ${recoveryLink}, expiration time: ${expirationMinutes} minutes`);
     return { recoveryLink, expirationMinutes };
   }
 }

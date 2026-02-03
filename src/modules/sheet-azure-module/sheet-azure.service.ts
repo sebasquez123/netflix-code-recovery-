@@ -10,21 +10,14 @@ import { StorageService, UpsertExcelTokenParameters } from '~/databaseSql/storag
 import { LoggerService } from '~/logger';
 import { HttpClientService } from '~/shared/http/http-client.service';
 
+import { readRangeInput, writeRangeInput, MicrosoftTokenResponse } from './interfaces';
+
 const TENANT = 'common';
 const TOKEN_URL = `https://login.microsoftonline.com/${TENANT}/oauth2/v2.0/token`;
 const AUTHORIZE_URL = `https://login.microsoftonline.com/${TENANT}/oauth2/v2.0/authorize`;
 const csrfKey = 'oauth-registry-csrf-key';
 const scopes = ['Files.ReadWrite', 'offline_access'];
-const redirectUrl = `${config.app.apiUrl}/auth/registry-account`;
-
-interface MicrosoftTokenResponse {
-  access_token: string;
-  token_type: string;
-  expires_in: number | string;
-  refresh_token: string;
-  scope: string;
-  ext_expires_in: number | string;
-}
+const redirectUrl = `${config.app.apiUrl}/auth/sheet-registry-account`;
 
 const itemId = config.azure.excelItemId;
 const worksheet = config.azure.excelWorksheet;
@@ -34,11 +27,13 @@ const driveId = config.azure.excelDriveId;
 export class SheetAzureService {
   private clientId = config.azure.clientId;
   private clientSecret = config.azure.clientSecret;
+  private logger;
   constructor(
-    private readonly logger: LoggerService,
     private readonly httpClient: HttpClientService,
     private readonly storageService: StorageService
-  ) {}
+  ) {
+    this.logger = new LoggerService();
+  }
 
   private generateState(): string {
     const key = Buffer.from(csrfKey);
@@ -57,9 +52,9 @@ export class SheetAzureService {
     return timingSafeEqual(a, b);
   }
 
-  //✅
-  requestExcelOAuth(email: string): string {
-    this.logger.log(`Requesting Microsoft OAuth for email: ${email}`);
+  //✅ FUNCIONA PERFECTO.
+  requestExcelOAuth(): string {
+    this.logger.log(`Requesting Microsoft OAuth for email: ${config.azure.userEmail}`);
 
     const parameters = qs.stringify({
       client_id: this.clientId,
@@ -69,18 +64,14 @@ export class SheetAzureService {
       scope: scopes.join(' '),
       prompt: 'consent',
       state: this.generateState(),
-      login_hint: email,
+      login_hint: config.azure.userEmail,
     });
-
-    this.logger.log(`Requesting Microsoft OAuth`);
     return `${AUTHORIZE_URL}?${parameters}`;
   }
-  //✅
+  //✅ FUNCIONA PERFECTO
   async approveExcelOauth(code: string, state: string): Promise<void> {
-    this.logger.log(`Approving sheets OAuth`);
     const ok = this.equalsState(this.generateState(), state);
     if (!ok) throw new InternalServerErrorException('Invalid state parameter');
-
     const data = qs.stringify({
       client_id: this.clientId,
       client_secret: this.clientSecret,
@@ -89,19 +80,19 @@ export class SheetAzureService {
       redirect_uri: redirectUrl,
       scope: scopes.join(' '),
     });
-
     const result: MicrosoftTokenResponse = await this.httpClient.post(TOKEN_URL, data, { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
     const upsert: UpsertExcelTokenParameters = {
       userEmail: config.azure.userEmail,
       refreshToken: result.refresh_token,
       accessToken: result.access_token,
       expiresAt: new Date(Date.now() + Number(result.expires_in) * 1000),
+      scope: result.scope,
     };
     await this.storageService.upsertExcelToken(upsert);
-    this.logger.log(`OAuth tokens received: ${JSON.stringify(result)}`);
+    this.logger.log(`OAuth tokens received and saved successfully`);
     return;
   }
-  //✅
+  //✅ FUNCIONA PERFECTO
   async refreshExcelAccessToken(refreshToken: string): Promise<void> {
     try {
       const data = qs.stringify({
@@ -117,9 +108,10 @@ export class SheetAzureService {
         refreshToken: result.refresh_token,
         accessToken: result.access_token,
         expiresAt: new Date(Date.now() + Number(result.expires_in) * 1000),
+        scope: result.scope,
       };
       await this.storageService.upsertExcelToken(upsert);
-      this.logger.log(`Refreshed OAuth tokens received: ${JSON.stringify(result)}`);
+      this.logger.log(`Refreshed OAuth tokens received and saved successfully`);
       return;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -127,31 +119,33 @@ export class SheetAzureService {
     }
   }
 
-  //✅
-  async writeRangeDelegated({ accessToken, values, address }: { accessToken: string; values: unknown[][]; address: string }): Promise<void> {
+  //✅ FUNCIONA PERFECTO
+  async writeRangeDelegated({ accessToken, values, address }: writeRangeInput): Promise<void> {
     try {
       const graph = Client.init({
         authProvider: (done) => done(null, accessToken),
       });
       await graph.api(`/drives/${driveId}/items/${itemId}/workbook/worksheets('${worksheet}')/range(address='${address}')`).patch({ values });
-      this.logger.log(`Wrote values to item ${itemId} ${worksheet}!${address}`);
+      this.logger.log(`Wrote values to item ${itemId} ${worksheet} ${address}`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Failed to write range: ${errorMessage}`);
       throw new InternalServerErrorException(`Failed to write range: ${errorMessage}`);
     }
   }
-  //✅
-  async readRangeDelegated({ accessToken }: { accessToken: string }): Promise<unknown[][]> {
+  //✅ FUNCIONA PERFECTO
+  async readRangeDelegated({ accessToken, address = `A2:A${config.azure.maxReadRange}` }: readRangeInput): Promise<unknown[][]> {
     try {
       const graph = Client.init({
         authProvider: (done) => done(null, accessToken),
       });
-      const range = (await graph.api(`/drives/${driveId}/items/${itemId}/workbook/worksheets('${worksheet}')/range(address='A1:A200')`).get()) as unknown as {
+      const range = (await graph
+        .api(`/drives/${driveId}/items/${itemId}/workbook/worksheets('${worksheet}')/range(address='${address}')`)
+        .get()) as unknown as {
         values: unknown[][];
       };
       const values = Array.isArray(range?.values) ? range.values : [];
-      this.logger.log(`Read values from ${itemId} ${worksheet}!A1:A200`);
+      this.logger.log(`Read values from ${itemId} ${worksheet} ${address}`);
       return values;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

@@ -11,10 +11,12 @@ import { SheetAzureService } from '../sheet-azure-module/sheet-azure.service';
 
 import { OauthRegistryService } from './oauth-registry-artifact.service';
 
-const artifactSignature = config.app.artifactSignature;
+const sessionSignature = config.app.sessionSignature;
+const gateSignature = config.app.gateSignature;
+
 const artifactOfAndre = config.app.artifactKey;
 const andreEmail = config.azure.userEmail;
-const refreshTimeWarning = config.azure.minutesForRefresh;
+const refreshTimeWarning = 30;
 
 class initialAccessResponse {
   portalToken!: string;
@@ -24,18 +26,19 @@ class initialAccessResponse {
 
 @Controller('auth')
 export class OauthRegistryController {
+  private logger;
+
   constructor(
     private readonly oauthRegistryService: OauthRegistryService,
     private readonly sheetAzureService: SheetAzureService,
-    private readonly logger: LoggerService,
     private readonly storageService: StorageService
-  ) {}
+  ) {
+    this.logger = new LoggerService();
+  }
+  //✅ FUNCIONA PERFECTO
   @Public()
   @Get('request-access')
-  // Usuario Owner solicita acceso a la consola de control usando un token por defecto encriptado
-  // y codificado en base 64, el token es estatico y se compone de un payload secreto y una firma secreta.
   async requestAccessToConsole(@Query('gateToken') gateToken: string): Promise<initialAccessResponse> {
-    // se decofica y se genera un token de acceso temporal para el uso de la consola.
     try {
       // verify gate token
       const decodedToken = decodeURIComponent(gateToken);
@@ -43,15 +46,15 @@ export class OauthRegistryController {
         algorithms: ['HS256'],
         ignoreExpiration: true,
       };
-      const result = verify(decodedToken, artifactSignature, verifyOptions) as { artifact: string };
+      const result = verify(decodedToken, gateSignature, verifyOptions) as { artifact: string };
 
       if (!result?.artifact || result.artifact !== artifactOfAndre) throw new BadRequestException(errorCodes.MISSING_GATE_TOKEN.errorcode);
 
       // new portal token
       const payload = { artifact: artifactOfAndre };
 
-      const token = sign(payload, artifactSignature, { algorithm: 'HS256', expiresIn: '25m' });
-      const response: initialAccessResponse = { portalToken: encodeURIComponent(token), expiresIn: 1500 };
+      const token = sign(payload, sessionSignature, { algorithm: 'HS256', expiresIn: '60m' });
+      const response: initialAccessResponse = { portalToken: encodeURIComponent(token), expiresIn: 3600 };
 
       const tokens = await this.storageService.getExcelToken(andreEmail);
       if (tokens?.expiresAt == null) {
@@ -69,6 +72,7 @@ export class OauthRegistryController {
       const minutesInMs = refreshTimeWarning * 60 * 1000;
       if (timeDiff <= minutesInMs) {
         try {
+          this.logger.log(`Excel access token refreshed proactively before expiration.`);
           await this.sheetAzureService.refreshExcelAccessToken(tokens.refreshToken);
           response.needExcelAccess = false;
           return response;
@@ -87,18 +91,18 @@ export class OauthRegistryController {
     }
   }
 
-  //✅ solicitamos la pantalla de oauth
-  @Get('sheet-window/:email')
-  getSheetWindow(@Param('email') email: string): string {
+  //✅ FUNCIONA PERFECTO
+  @Get('sheet-window')
+  getSheetWindow(): string {
     try {
-      return this.sheetAzureService.requestExcelOAuth(email);
+      return this.sheetAzureService.requestExcelOAuth();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(errorMessage);
       throw error;
     }
   }
-  //✅ microsoft lee este endpoint y se guarda el token en la hoja de excel.
+  //✅ FUNCIONA PERFECTO
   @Public()
   @Get('sheet-registry-account')
   async approveSheetAccount(@Query('code') code: string, @Query('state') state: string): Promise<void> {
@@ -110,7 +114,7 @@ export class OauthRegistryController {
       throw error;
     }
   }
-  //✅ solicitamos la pantalla de oauth
+  //✅ FUNCIONA PERFECTO
   @Get('email-window/:email')
   getEmailWindow(@Param('email') email: string): string {
     try {
@@ -121,7 +125,7 @@ export class OauthRegistryController {
       throw error;
     }
   }
-  //✅ microsoft lee este endpoint y se guarda el token en la hoja de excel.
+  //✅ FUNCIONA PERFECTO
   @Public()
   @Get('email-registry-account')
   async approveEmailAccount(@Query('code') code: string, @Query('state') state: string): Promise<void> {
