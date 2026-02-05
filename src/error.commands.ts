@@ -46,7 +46,7 @@ export const errorCodes: ErrorCodes = {
       'Something is wrong internally, it is not behavioral by design. Try again in 5mn if the problem persists contact support team providing the error code.',
   },
   NO_FOUND_EMAIL_AVAILABLE: {
-    errorcode: 'CODE 3007',
+    errorcode: 'CODE 5007',
     realError: nofoundNetflixEmail,
     suggestion: 'Ensure the email is healthy, ensure the user has sent the code request sucessfuly and wait 3 minutes before trying again.',
   },

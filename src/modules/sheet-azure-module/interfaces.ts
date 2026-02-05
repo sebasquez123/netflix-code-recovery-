@@ -1,19 +1,14 @@
-export interface readRangeInput {
+export interface databaseGetResponse {
+  id: number;
+  userEmail: string;
+  refreshToken: string;
   accessToken: string;
-  address?: string;
+  provider: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
-
-export interface writeRangeInput {
+export interface databaseUpsertInput {
+  userEmail: string;
+  refreshToken: string;
   accessToken: string;
-  address: string;
-  values: unknown[][];
-}
-
-export interface MicrosoftTokenResponse {
-  access_token: string;
-  token_type: string;
-  expires_in: number | string;
-  refresh_token: string;
-  scope: string;
-  ext_expires_in: number | string;
 }

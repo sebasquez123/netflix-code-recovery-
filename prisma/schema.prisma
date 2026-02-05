@@ -25,3 +25,16 @@ model OAuthToken {
 
   @@unique([provider, userEmail])
 }
+
+
+model emails {
+  id           Int      @id @default(autoincrement())
+  provider     String   
+  userEmail    String
+  refreshToken String
+  accessToken  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([provider, userEmail])
+}

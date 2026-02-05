@@ -5,7 +5,7 @@ import { LoggerService } from '~/logger';
 import { HttpModule } from '~/shared/http/http.module';
 
 import { OauthRegistryModule } from '../oauth-registry-artifact-module/oauth-registry-artifact.module';
-import { SheetAzureModule } from '../sheet-azure-module/sheet-azure.module';
+import { SheetAzureModule } from '../sheet-azure-module/database-interface.module';
 
 import { CodeRequestController } from './code-request.controller';
 import { CodeRequestService } from './code-request.service';

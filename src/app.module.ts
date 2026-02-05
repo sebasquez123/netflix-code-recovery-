@@ -4,7 +4,7 @@ import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
 
 import { CodeRequestModule } from '~/modules/code-request-module/code-request.module';
 import { OauthRegistryModule } from '~/modules/oauth-registry-artifact-module/oauth-registry-artifact.module';
-import { SheetAzureModule } from '~/modules/sheet-azure-module/sheet-azure.module';
+import { DatabaseInterfaceModule } from '~/modules/sheet-azure-module/database-interface.module';
 import { HttpExceptionFilter } from '~/shared/filters/http-exception.filter';
 import { AuthGuard } from '~/shared/guards/auth.guard';
 import { HttpModule } from '~/shared/http/http.module';
@@ -19,7 +19,7 @@ import { HealthCheckProbesModule } from './modules/health-check-probes-module/he
       isGlobal: true,
       envFilePath: '.env',
     }),
-    SheetAzureModule,
+    DatabaseInterfaceModule,
     OauthRegistryModule,
     CodeRequestModule,
     HealthCheckProbesModule,

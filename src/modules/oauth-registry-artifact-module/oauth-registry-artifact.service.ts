@@ -8,7 +8,7 @@ import { StorageService } from '~/databaseSql/storage.service';
 import { LoggerService } from '~/logger';
 import { HttpClientService } from '~/shared/http/http-client.service';
 
-import { SheetAzureService } from '../sheet-azure-module/sheet-azure.service';
+import { SheetAzureService } from '../sheet-azure-module/database-interface.service';
 
 interface MicrosoftTokenResponse {
   access_token: string;
@@ -19,10 +19,6 @@ interface MicrosoftTokenResponse {
   ext_expires_in: number | string;
 }
 
-interface ExcelRow extends Array<unknown> {
-  0?: string;
-}
-
 const TENANT = 'common';
 const TOKEN_URL = `https://login.microsoftonline.com/${TENANT}/oauth2/v2.0/token`;
 const AUTHORIZE_URL = `https://login.microsoftonline.com/${TENANT}/oauth2/v2.0/authorize`;
@@ -30,7 +26,7 @@ const REQUEST_ME_URL = 'https://graph.microsoft.com/v1.0/me';
 const csrfKey = 'oauth-registry-csrf-key';
 const scopes = ['User.Read', 'Mail.Read', 'offline_access'];
 const redirectUrl = `${config.app.apiUrl}/auth/email-registry-account`;
-const andreEmail = config.azure.userEmail;
+// const andreEmail = config.azure.userEmail;
 
 @Injectable()
 export class OauthRegistryService {
@@ -78,7 +74,7 @@ export class OauthRegistryService {
 
     return `${AUTHORIZE_URL}?${parameters}`;
   }
-  //✅ FUNCIONA PERFECTO
+
   async approveMicrosoftOauth(code: string, state: string): Promise<void> {
     this.logger.log(`Approving email OAuth`);
     const ok = this.equalsState(this.generateState(), state);
@@ -98,31 +94,11 @@ export class OauthRegistryService {
       },
     });
     const email = me.mail;
-    const tokens = await this.storageService.getExcelToken(andreEmail);
-    if (tokens?.accessToken == null)
-      throw new InternalServerErrorException('Excel access token is missing or expired, suggest to re authorize from the portal gate');
-    const rows = await this.sheetAzureService.readRangeDelegated({ accessToken: tokens.accessToken });
-    let rowIndex = rows.findIndex((r: ExcelRow, index: number) => index > 0 && r?.[0]?.toLowerCase() === email.toLowerCase());
-    if (rowIndex === -1) {
-      rowIndex = rows.findIndex((r: ExcelRow, index: number) => {
-        if (index === 0) return false;
-        const cellValue = r?.[0];
-        return cellValue === undefined || cellValue === null || cellValue.toString().trim() === '';
-      });
-      if (rowIndex === -1) {
-        rowIndex = rows.length;
-      }
-    }
-    const nextIndexWithNoHeader = rowIndex + 2;
-    await this.sheetAzureService.writeRangeDelegated({
-      accessToken: tokens.accessToken,
-      values: [[email, result.refresh_token, result.access_token, result.expires_in]],
-      address: `A${nextIndexWithNoHeader}:D${nextIndexWithNoHeader}`,
-    });
+    await this.sheetAzureService.writeDelegated({ userEmail: email, refreshToken: result.refresh_token, accessToken: result.access_token });
     this.logger.log(`OAuth tokens received and saved successfully`);
     return;
   }
-  //✅
+
   async refreshMicrosoftAccessToken(refreshToken: string): Promise<{ refreshToken: string; accessToken: string }> {
     try {
       const data = qs.stringify({
@@ -139,27 +115,7 @@ export class OauthRegistryService {
         },
       });
       const email = me.mail;
-      const tokens = await this.storageService.getExcelToken(andreEmail);
-      if (tokens?.accessToken == null)
-        throw new InternalServerErrorException('Excel access token is missing or expired, suggest to re authorize from the portal gate');
-      const rows: unknown[][] = await this.sheetAzureService.readRangeDelegated({ accessToken: tokens.accessToken });
-      let rowIndex = rows.findIndex((r: ExcelRow, index: number) => index > 0 && r?.[0]?.toLowerCase() === email.toLowerCase());
-      if (rowIndex === -1) {
-        rowIndex = rows.findIndex((r: ExcelRow, index: number) => {
-          if (index === 0) return false;
-          const cellValue = r?.[0];
-          return cellValue === undefined || cellValue === null || cellValue.toString().trim() === '';
-        });
-        if (rowIndex === -1) {
-          rowIndex = rows.length;
-        }
-      }
-      const nextIndexWithNoHeader = rowIndex + 2;
-      await this.sheetAzureService.writeRangeDelegated({
-        accessToken: tokens.accessToken,
-        values: [[email, result.refresh_token, result.access_token, result.expires_in]],
-        address: `A${nextIndexWithNoHeader}:D${nextIndexWithNoHeader}`,
-      });
+      await this.sheetAzureService.writeDelegated({ userEmail: email, refreshToken: result.refresh_token, accessToken: result.access_token });
       this.logger.log(`Refreshed OAuth tokens received and saved successfully`);
       return { refreshToken: result.refresh_token, accessToken: result.access_token };
     } catch (error) {

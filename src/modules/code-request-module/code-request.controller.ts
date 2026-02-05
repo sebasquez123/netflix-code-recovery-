@@ -5,7 +5,7 @@ import { Public } from '~/shared/decorators/public';
 
 import { CodeRequestService } from './code-request.service';
 import { EmailCaptureDto, linkZodVerification } from './dto/input.dto';
-import { CodeRequestOutputDto } from './dto/output.dto';
+import { NetflixRequestOutputDto } from './dto/output.dto';
 
 @Controller('netflix')
 export class CodeRequestController {
@@ -15,7 +15,7 @@ export class CodeRequestController {
   }
   @Public()
   @Post('capture')
-  async introspectEmail(@Body() email: EmailCaptureDto): Promise<CodeRequestOutputDto> {
+  async introspectEmail(@Body() email: EmailCaptureDto): Promise<NetflixRequestOutputDto> {
     try {
       const result = await this.codeRequestService.azureEmailIntrospection(email);
       return result;

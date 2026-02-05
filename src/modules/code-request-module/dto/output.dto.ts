@@ -1,4 +1,6 @@
-export class CodeRequestOutputDto {
-  expirationTime!: string;
-  recoveryLink!: string;
+import { extractedRecoveryLink, extractedSignInCode } from '../interfaces';
+
+export class NetflixRequestOutputDto {
+  extractedRecoveryLink!: extractedRecoveryLink | null;
+  extractedSignInCode!: extractedSignInCode | null;
 }
