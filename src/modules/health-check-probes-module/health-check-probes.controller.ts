@@ -26,6 +26,4 @@ export class HealthCheckProbesController {
     );
     return result;
   }
-  // aqui deberia probar conexion con spreadsheet
-  // tambien con azure.
 }

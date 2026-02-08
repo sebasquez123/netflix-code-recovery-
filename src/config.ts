@@ -29,10 +29,6 @@ export default {
     clientId: process.env['AZURE_CLIENT_ID']!,
     clientSecret: process.env['AZURE_CLIENT_SECRET']!,
     userEmail: process.env['AZURE_USER_EMAIL']!,
-    excelItemId: process.env['EXCEL_ITEM_ID']!,
-    excelWorksheet: process.env['EXCEL_WORKSHEET']!,
-    excelDriveId: process.env['EXCEL_DRIVE_ID']!,
-    maxReadRange: process.env['MAX_READ_RANGE']!,
     maxReadNetflixEmails: Number.parseInt(process.env['MAX_READ_NETFLIX_EMAILS']!),
   },
 } as const;

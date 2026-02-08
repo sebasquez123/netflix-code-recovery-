@@ -1,45 +1,21 @@
-version: '3.7'
-
 services:
-  # Standard local PostgreSQL database
-  db:
-    container_name: phit_db
-    image: postgres:15.4-alpine
-    restart: always
-    environment:
-      POSTGRES_USER: phit_user
-      POSTGRES_DB: phit-local
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
-    ports:
-      - 9532:5432
-    networks:
-      - phit
-
-  # API service
   api:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: netflix-code-recovery-api
+    restart: unless-stopped
     ports:
       - "3035:3035"
+    env_file:
+      - .env
     environment:
-      - NODE_ENV=development
-      - APP_ENV=local
-      - APP_PORT=3035
-      - APP_VERSION=latest
-      - APP_API_URL=http://localhost:3035
-      - APP_URL=http://localhost:3000
-      - DB_URL=postgres://phit_user:${DB_PASSWORD:-password}@db:5432/phit-local
-      - LOG_LEVEL=trace
-    depends_on:
-      - db
+      - NODE_ENV=production
     volumes:
-      - .:/app
-      - /app/node_modules
+      - ./data:/opt/app/data
     networks:
-      - phit
+      - netflix-recovery
 
 networks:
-  phit:
-    name: phit
+  netflix-recovery:
     driver: bridge

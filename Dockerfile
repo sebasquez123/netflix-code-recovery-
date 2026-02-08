@@ -1,25 +1,58 @@
 FROM node:22.19.0-alpine AS builder
 
-RUN mkdir -p /opt/app/
-COPY package.json package-lock.json nest-cli.json .env.example tsconfig.json tsconfig.build.json /opt/app/
-WORKDIR /opt/app/
+WORKDIR /opt/app
 
-RUN npm ci --ignore-scripts
-COPY src /opt/app/src/
+# Copiar archivos de dependencias primero
+COPY package.json package-lock.json ./
+
+# Instalar todas las dependencias
+RUN npm ci --legacy-peer-deps
+
+# Copiar archivos de configuración necesarios para build
+COPY nest-cli.json tsconfig.json tsconfig.build.json ./
+
+# Copiar código fuente y Prisma
+COPY src ./src
+COPY prisma ./prisma
+
+# Generar cliente de Prisma y construir la aplicación
+RUN npx prisma generate
 RUN npm run build
 
+# ========================================
+# Imagen de producción
+# ========================================
 FROM node:22.19.0-alpine
-ARG VERSION
-ENV APP_PORT=8080 \
-    APP_VERSION=${VERSION:-unknown} \
-    NODE_ENV=production \
-    NODE_OPTIONS="--enable-source-maps"
-EXPOSE 8080
 
-COPY package.json package-lock.json /opt/app/
-WORKDIR /opt/app/
-RUN npm ci --omit=dev --ignore-scripts
-COPY .env.example /opt/app/
-COPY --from=builder /opt/app/dist/ dist/
+ENV NODE_ENV=production
 
-ENTRYPOINT ["node", "/opt/app/dist/main.js"]
+WORKDIR /opt/app
+
+# Copiar archivos de dependencias
+COPY package.json package-lock.json ./
+
+# Instalar solo dependencias de producción
+RUN npm ci --omit=dev --legacy-peer-deps && npm cache clean --force
+
+# Copiar Prisma schema, migraciones, config y generar cliente
+COPY prisma ./prisma
+COPY prisma.config.ts ./
+RUN npx prisma generate --config prisma.config.ts
+
+# Copiar la aplicación compilada desde builder
+COPY --from=builder /opt/app/dist ./dist
+
+# Copiar las vistas HTML y archivos necesarios
+COPY view ./view
+COPY .env.example ./
+
+# Copiar script de entrada
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
+
+# Crear carpeta data
+RUN mkdir -p ./data
+
+EXPOSE 3035
+
+ENTRYPOINT ["./docker-entrypoint.sh"]

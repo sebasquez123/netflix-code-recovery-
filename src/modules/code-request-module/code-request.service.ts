@@ -1,6 +1,7 @@
 import { Client } from '@microsoft/microsoft-graph-client';
 import { BadGatewayException, Injectable, NotFoundException, PreconditionFailedException } from '@nestjs/common';
 
+import config from '~/config';
 import { errorCodes } from '~/error.commands';
 import { LoggerService } from '~/logger';
 import { HttpClientService } from '~/shared/http/http-client.service';
@@ -116,7 +117,7 @@ export class CodeRequestService {
     async function extractRecoveryLink() {
       const first3Emails = (await graph
         .api('/me/mailFolders/Inbox/messages')
-        .top(10)
+        .top(config.azure.maxReadNetflixEmails)
         .select('subject,from,receivedDateTime,body')
         .header('Prefer', 'outlook.body-content-type="text"')
         .get()) as emailIntrospectionReseponse;

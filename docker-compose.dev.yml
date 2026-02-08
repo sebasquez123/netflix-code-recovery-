@@ -1,0 +1,29 @@
+version: '3.8'
+
+# Docker Compose para desarrollo local
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: netflix-code-recovery-dev
+    ports:
+      - "3035:3035"
+    environment:
+      - NODE_ENV=development
+      - APP_PORT=3035
+      - LOG_LEVEL=trace
+    env_file:
+      - .env
+    volumes:
+      # Montar código fuente para hot-reload (solo dev)
+      - ./src:/opt/app/src
+      - ./view:/opt/app/view
+      - ./data:/opt/app/data
+    networks:
+      - netflix-recovery-dev
+
+networks:
+  netflix-recovery-dev:
+    name: netflix-recovery-dev
+    driver: bridge
