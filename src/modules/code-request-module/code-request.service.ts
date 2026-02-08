@@ -67,7 +67,7 @@ export class CodeRequestService {
   }
   //✅ FUNCIONA PERFECTO
   private async validateEmailAccess(rowData: matchedEmailRow): Promise<void> {
-    if (!rowData.refreshToken || !rowData.accessToken) throw new NotFoundException(errorCodes.NO_DATA_COMPLETE_FOUND_FROM_EXCEL.errorcode);
+    if (!rowData.refreshToken || !rowData.accessToken) throw new NotFoundException(errorCodes.NO_DATA_COMPLETE_FROM_DB.errorcode);
 
     let emailBox: { value: unknown[] } | undefined;
     let accessToken: string = rowData.accessToken;
@@ -128,7 +128,7 @@ export class CodeRequestService {
         // timeDiff <= minutesInMs
         return (
           email.from.emailAddress.address.toLowerCase().includes('netflix') &&
-          (email.subject.toLowerCase().includes('tu código de inicio de sesión') || email.subject.toLowerCase().includes('actulizar hogar'))
+          (email.subject.toLowerCase().includes('tu código de inicio de sesión') || email.subject.toLowerCase().includes('actualizar hogar'))
         );
       });
       if (emailFiltered.length === 0) throw new NotFoundException(errorCodes.NO_FOUND_EMAIL_AVAILABLE.errorcode);

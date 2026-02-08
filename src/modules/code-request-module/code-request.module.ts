@@ -5,7 +5,7 @@ import { LoggerService } from '~/logger';
 import { HttpModule } from '~/shared/http/http.module';
 
 import { OauthRegistryModule } from '../oauth-registry-artifact-module/oauth-registry-artifact.module';
-import { SheetAzureModule } from '../sheet-azure-module/database-interface.module';
+import { DatabaseInterfaceModule } from '../sheet-azure-module/database-interface.module';
 
 import { CodeRequestController } from './code-request.controller';
 import { CodeRequestService } from './code-request.service';
@@ -13,7 +13,7 @@ import { CodeRequestService } from './code-request.service';
 @Module({
   controllers: [CodeRequestController],
   providers: [CodeRequestService, LoggerService],
-  imports: [HttpModule, OauthRegistryModule, SheetAzureModule, StorageModule],
+  imports: [HttpModule, OauthRegistryModule, DatabaseInterfaceModule, StorageModule],
   exports: [CodeRequestService],
 })
 export class CodeRequestModule {}

@@ -8,7 +8,7 @@ import { StorageService } from '~/databaseSql/storage.service';
 import { LoggerService } from '~/logger';
 import { HttpClientService } from '~/shared/http/http-client.service';
 
-import { SheetAzureService } from '../sheet-azure-module/database-interface.service';
+import { DatabaseInterfaceService } from '../sheet-azure-module/database-interface.service';
 
 interface MicrosoftTokenResponse {
   access_token: string;
@@ -26,7 +26,6 @@ const REQUEST_ME_URL = 'https://graph.microsoft.com/v1.0/me';
 const csrfKey = 'oauth-registry-csrf-key';
 const scopes = ['User.Read', 'Mail.Read', 'offline_access'];
 const redirectUrl = `${config.app.apiUrl}/auth/email-registry-account`;
-// const andreEmail = config.azure.userEmail;
 
 @Injectable()
 export class OauthRegistryService {
@@ -36,7 +35,7 @@ export class OauthRegistryService {
   constructor(
     private readonly httpClient: HttpClientService,
     private readonly storageService: StorageService,
-    private readonly sheetAzureService: SheetAzureService
+    private readonly databaseInterfaceService: DatabaseInterfaceService
   ) {
     this.logger = new LoggerService();
   }
@@ -94,7 +93,7 @@ export class OauthRegistryService {
       },
     });
     const email = me.mail;
-    await this.sheetAzureService.writeDelegated({ userEmail: email, refreshToken: result.refresh_token, accessToken: result.access_token });
+    await this.databaseInterfaceService.writeDelegated({ userEmail: email, refreshToken: result.refresh_token, accessToken: result.access_token });
     this.logger.log(`OAuth tokens received and saved successfully`);
     return;
   }
@@ -115,7 +114,7 @@ export class OauthRegistryService {
         },
       });
       const email = me.mail;
-      await this.sheetAzureService.writeDelegated({ userEmail: email, refreshToken: result.refresh_token, accessToken: result.access_token });
+      await this.databaseInterfaceService.writeDelegated({ userEmail: email, refreshToken: result.refresh_token, accessToken: result.access_token });
       this.logger.log(`Refreshed OAuth tokens received and saved successfully`);
       return { refreshToken: result.refresh_token, accessToken: result.access_token };
     } catch (error) {

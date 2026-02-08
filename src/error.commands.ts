@@ -1,14 +1,13 @@
 const missingPermissions = 'Permissions required to access the resource. Gate token no valid or expired';
 const missingAccessPermission = 'Access token for managing the portal is missing or expired';
 const internalServerError = 'The server is off, or there is a problem internally or externally in regard with the service. the reason is unknown.';
-const nofoundNetflixEmail = 'No netflix email found for recovery link in the last 15 minutes.';
-const missingExcelTokenInDatabase = 'Excel access token not found at DB, maybe the DB was rebooted or cleaned suddenly';
-const noExcelTokenFoundAfterRefresh = 'Excel access token not found after refresh, it may be the token is not valid anymore and need to be re authorized.';
-const noDataFoundInExcel = 'No Excel row found after attempts for the configured user, it might have failed in the attempts to read the excel.';
-const noDataCompleteFoundFromExcel = 'Microsoft access token or refresh token not found in the excel, information is incomplete.';
+const nofoundNetflixEmail =
+  'No netflix email found for recovery link in the last 15 minutes, it often happens if the api does not accept the token or is malformed, it is fixed requesting again.';
 const missingEmailRefreshTokenAfterRefresh =
   'Email access token not found after refresh, it may be the token is not valid anymore and need to be re authorized.';
 const noDataFromEmailInbox = 'Failed to introspect email inbox, there was not valid type email data, if it was undefined coming from the attempts.';
+const noCompleteOrUnexistentDataFromDatabase =
+  'The email data from database is not complete or does not exist, there must be a problem with the db and the stored data, suggest to re authorize from the portal gate and download the dump of data and checkout what is existing there.';
 interface ErrorMessageCodes {
   errorcode: string;
   realError: string;
@@ -19,11 +18,7 @@ interface ErrorCodes {
   MISSING_PORTAL_ACCESS: ErrorMessageCodes;
   INTERNAL_SERVER_ERROR: ErrorMessageCodes;
   NO_FOUND_EMAIL_AVAILABLE: ErrorMessageCodes;
-
-  MISSING_EXCEL_TOKEN: ErrorMessageCodes;
-  NO_EXCEL_TOKEN_AFTER_REFRESH: ErrorMessageCodes;
-  NO_DATA_FOUND_IN_EXCEL: ErrorMessageCodes;
-  NO_DATA_COMPLETE_FOUND_FROM_EXCEL: ErrorMessageCodes;
+  NO_DATA_COMPLETE_FROM_DB: ErrorMessageCodes;
   MISSING_EMAIL_REFRESH_TOKEN_AFTER_REFRESH: ErrorMessageCodes;
   NO_DATA_FROM_EMAIL_INBOX: ErrorMessageCodes;
 }
@@ -45,33 +40,17 @@ export const errorCodes: ErrorCodes = {
     suggestion:
       'Something is wrong internally, it is not behavioral by design. Try again in 5mn if the problem persists contact support team providing the error code.',
   },
+  NO_DATA_COMPLETE_FROM_DB: {
+    errorcode: 'CODE 5006',
+    realError: noCompleteOrUnexistentDataFromDatabase,
+    suggestion:
+      'The data from database is not complete or does not exist, there must be a problem with the db and the stored data, suggest to re authorize from the portal gate and download the dump of data and checkout what is existing there.',
+  },
   NO_FOUND_EMAIL_AVAILABLE: {
     errorcode: 'CODE 5007',
     realError: nofoundNetflixEmail,
-    suggestion: 'Ensure the email is healthy, ensure the user has sent the code request sucessfuly and wait 3 minutes before trying again.',
-  },
-
-  MISSING_EXCEL_TOKEN: {
-    errorcode: 'CODE 1007',
-    realError: missingExcelTokenInDatabase,
-    suggestion: 'Excel token is missing or expired, suggest to re authorize from the portal gate.',
-  },
-  NO_EXCEL_TOKEN_AFTER_REFRESH: {
-    errorcode: 'CODE 1008',
-    realError: noExcelTokenFoundAfterRefresh,
     suggestion:
-      'Excel token is missing after refresh, the db was cleaned, suggest to re authorize from the portal gate or introspect the dd if problem persists.',
-  },
-  NO_DATA_FOUND_IN_EXCEL: {
-    errorcode: 'CODE 2009',
-    realError: noDataFoundInExcel,
-    suggestion: 'No Excel row found for the configured user, recommended reauth the excel again, but observe the data is correctly inserted.',
-  },
-  NO_DATA_COMPLETE_FOUND_FROM_EXCEL: {
-    errorcode: 'CODE 2010',
-    realError: noDataCompleteFoundFromExcel,
-    suggestion:
-      'Microsoft access token or refresh token not found in the excel, suggest to re authorize, and make sure the data exist complete ( email, refresh, access, expire time )',
+      'Ensure the user has sent the code request sucessfuly and wait 3 minutes before trying again, therefore try again, sometimes it is because the api rejects the first time.',
   },
   MISSING_EMAIL_REFRESH_TOKEN_AFTER_REFRESH: {
     errorcode: 'CODE 3011',
