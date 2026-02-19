@@ -4,7 +4,6 @@ import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import * as qs from 'qs';
 
 import config from '~/config';
-import { StorageService } from '~/databaseSql/storage.service';
 import { LoggerService } from '~/logger';
 import { HttpClientService } from '~/shared/http/http-client.service';
 
@@ -34,7 +33,6 @@ export class OauthRegistryService {
   private logger;
   constructor(
     private readonly httpClient: HttpClientService,
-    private readonly storageService: StorageService,
     private readonly databaseInterfaceService: DatabaseInterfaceService
   ) {
     this.logger = new LoggerService();
