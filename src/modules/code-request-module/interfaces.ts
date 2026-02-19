@@ -16,12 +16,17 @@ export interface emailIntrospectionIndividualEmail {
   };
 }
 
-export interface extractedRecoveryLink {
-  recoveryLink: string;
+export interface extractedActualizarHogarLink {
+  recoveryLink: string | null;
   time: Date;
 }
 
 export interface extractedSignInCode {
   signInCode: string | null;
+  time: Date;
+}
+
+export interface extractedSignInLink {
+  temporalSignInLink: string | null;
   time: Date;
 }

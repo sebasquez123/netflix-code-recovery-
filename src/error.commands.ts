@@ -25,41 +25,41 @@ interface ErrorCodes {
 
 export const errorCodes: ErrorCodes = {
   MISSING_GATE_TOKEN: {
-    errorcode: 'CODE 001',
+    errorcode: 'STATUS 001',
     realError: missingPermissions,
     suggestion: 'Review the gate token used, type it correctly and submit in the path. if persists, request a review to support team.',
   },
   MISSING_PORTAL_ACCESS: {
-    errorcode: 'CODE 002',
+    errorcode: 'STATUS 002',
     realError: missingAccessPermission,
     suggestion: 'Probably your portal token has expired already, it is programed for 25 minutes, you have to get into the gate again with a valid gate token.',
   },
   INTERNAL_SERVER_ERROR: {
-    errorcode: 'CODE 005',
+    errorcode: 'STATUS 005',
     realError: internalServerError,
     suggestion:
       'Something is wrong internally, it is not behavioral by design. Try again in 5mn if the problem persists contact support team providing the error code.',
   },
   NO_DATA_COMPLETE_FROM_DB: {
-    errorcode: 'CODE 5006',
+    errorcode: 'STATUS 5006',
     realError: noCompleteOrUnexistentDataFromDatabase,
     suggestion:
       'The data from database is not complete or does not exist, there must be a problem with the db and the stored data, suggest to re authorize from the portal gate and download the dump of data and checkout what is existing there.',
   },
   NO_FOUND_EMAIL_AVAILABLE: {
-    errorcode: 'CODE 5007',
+    errorcode: 'STATUS 5007',
     realError: nofoundNetflixEmail,
     suggestion:
       'Ensure the user has sent the code request sucessfuly and wait 3 minutes before trying again, therefore try again, sometimes it is because the api rejects the first time.',
   },
   MISSING_EMAIL_REFRESH_TOKEN_AFTER_REFRESH: {
-    errorcode: 'CODE 3011',
+    errorcode: 'STATUS 3011',
     realError: missingEmailRefreshTokenAfterRefresh,
     suggestion:
       'Email access token is missing after refresh, there must be a problem with the refres token, suggest to re authorize from the portal gate or introspect the manually the project if problem persists.',
   },
   NO_DATA_FROM_EMAIL_INBOX: {
-    errorcode: 'CODE 3012',
+    errorcode: 'STATUS 3012',
     realError: noDataFromEmailInbox,
     suggestion: 'Failed to introspect email inbox, ensure the email has permissions enabled. re authorize.',
   },

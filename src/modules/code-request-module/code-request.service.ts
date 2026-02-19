@@ -4,26 +4,57 @@ import { BadGatewayException, Injectable, NotFoundException, PreconditionFailedE
 import config from '~/config';
 import { errorCodes } from '~/error.commands';
 import { LoggerService } from '~/logger';
-import { HttpClientService } from '~/shared/http/http-client.service';
 
 import { OauthRegistryService } from '../oauth-registry-artifact-module/oauth-registry-artifact.service';
 import { DatabaseInterfaceService } from '../sheet-azure-module/database-interface.service';
 
 import { EmailCaptureDto } from './dto/input.dto';
 import { NetflixRequestOutputDto } from './dto/output.dto';
-import { emailIntrospectionIndividualEmail, emailIntrospectionReseponse, matchedEmailRow, extractedSignInCode } from './interfaces';
+import {
+  emailIntrospectionIndividualEmail,
+  emailIntrospectionReseponse,
+  matchedEmailRow,
+  extractedSignInCode,
+  extractedActualizarHogarLink,
+  extractedSignInLink,
+} from './interfaces';
 
+enum emailSubjects {
+  SIGN_IN_CODE = 'tu código de inicio de sesión',
+  SIGN_IN_LINK = 'acceso temporal de netflix',
+  RECOVERY_LINK = 'actualizar tu hogar con netflix',
+}
+interface interceptorIdentifiers {
+  interceptorRegex: RegExp;
+  type: emailSubjects;
+  identifier: string;
+}
+const interceptorIdentifiers = {
+  signInCode: {
+    interceptorRegex: /ingresa este código para iniciar sesión\s*(\d{4})\s*ingresa este código en tu dispositivo/i,
+    type: emailSubjects.SIGN_IN_CODE,
+    identifier: emailSubjects.SIGN_IN_CODE.valueOf(),
+  },
+  temporalSignIng: {
+    interceptorRegex: /obtener código<([^>]+)>/i,
+    type: emailSubjects.SIGN_IN_LINK,
+    identifier: emailSubjects.SIGN_IN_LINK,
+  },
+  actualizarHogar: {
+    interceptorRegex: /sí, la envié yo<([^>]+)>/i,
+    type: emailSubjects.RECOVERY_LINK,
+    identifier: emailSubjects.RECOVERY_LINK.valueOf(),
+  },
+};
 @Injectable()
 export class CodeRequestService {
   private logger;
   constructor(
-    private readonly httpClient: HttpClientService,
     private readonly databaseInterfaceService: DatabaseInterfaceService,
     private readonly oauthRegistryService: OauthRegistryService
   ) {
     this.logger = new LoggerService();
   }
-  //✅ FUNCIONA PERFECTO
   async azureEmailIntrospection({ email }: EmailCaptureDto): Promise<NetflixRequestOutputDto> {
     this.logger.log(`introspecting email ${email}`);
 
@@ -40,33 +71,26 @@ export class CodeRequestService {
     await this.validateEmailAccess(rowData);
 
     const emails = await this.getNetflixEmails(rowData);
-
-    const loginCode = emails.filter((emailCode) => emailCode.subject.toLowerCase().includes('tu código de inicio de sesión'));
-    // const recoveryLinkEmails = emails.filter((emailRecovery) => emailRecovery.subject.toLowerCase().includes('actulizar hogar'));
-
+    const loginCodeEmails = emails.filter((emailCode) => emailCode.subject.toLowerCase().includes(interceptorIdentifiers.signInCode.identifier));
+    const temporalSignInLinkEmails = emails.filter((emailRecovery) =>
+      emailRecovery.subject.toLowerCase().includes(interceptorIdentifiers.temporalSignIng.identifier)
+    );
+    const actualizarHogarLinkEmails = emails.filter((emailRecovery) =>
+      emailRecovery.subject.toLowerCase().includes(interceptorIdentifiers.actualizarHogar.identifier)
+    );
     let signInObject: extractedSignInCode | null = null;
-    // let recoveryLinkObject: extractedRecoveryLink | null = null;
+    let temporalSignInObject: extractedSignInLink | null = null;
+    let actualizarHogarLinkObject: extractedActualizarHogarLink | null = null;
 
-    if (loginCode.length > 0) signInObject = this.extractSignInCode(loginCode);
-    // if (recoveryLinkEmails.length > 0) recoveryLinkObject = await this.extractRecoveryLink(recoveryLinkEmails);
+    if (loginCodeEmails.length > 0) signInObject = this.extractSignInCode(loginCodeEmails);
+    if (temporalSignInLinkEmails.length > 0) temporalSignInObject = this.extractTemporalSignInCode(temporalSignInLinkEmails);
+    if (actualizarHogarLinkEmails.length > 0) actualizarHogarLinkObject = this.extractActualizarHogarLink(actualizarHogarLinkEmails);
 
-    this.logger.log(`Email ${email} introspected successfully`);
-    // return { extractedRecoveryLink: recoveryLinkObject, extractedSignInCode: signInObject };
-    return { extractedRecoveryLink: null, extractedSignInCode: signInObject };
+    this.logger.log(
+      `Email ${email} introspection went successfully, Found:${actualizarHogarLinkObject ? interceptorIdentifiers.actualizarHogar.type : ''} ${signInObject ? `& ${interceptorIdentifiers.signInCode.type}` : ''} ${temporalSignInObject ? `& ${interceptorIdentifiers.temporalSignIng.type}` : ''}`
+    );
+    return { extractedActualizarHogarLink: actualizarHogarLinkObject, extractedSignInCode: signInObject, extractedTemporalSignInLink: temporalSignInObject };
   }
-  //✅ FUNCIONA PERFECTO
-  async netflixLinkRestoration(link: string): Promise<void> {
-    this.logger.log(`Sending netflix recovery confirmation to ${link}`);
-    try {
-      await this.httpClient.post(link, {});
-      this.logger.log(`Netflix recovery confirmation successful`);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error(`Netflix recovery confirmation failed: ${errorMessage}`);
-      throw new BadGatewayException(`Recovery confirmation failed. Wait 3 minutes`);
-    }
-  }
-  //✅ FUNCIONA PERFECTO
   private async validateEmailAccess(rowData: matchedEmailRow): Promise<void> {
     if (!rowData.refreshToken || !rowData.accessToken) throw new NotFoundException(errorCodes.NO_DATA_COMPLETE_FROM_DB.errorcode);
 
@@ -98,7 +122,6 @@ export class CodeRequestService {
     if (!emailBox?.value[0]) throw new BadGatewayException(errorCodes.NO_DATA_FROM_EMAIL_INBOX.errorcode);
     this.logger.log(`Email access for ${rowData.email} validated successfully`);
   }
-  //✅ FUNCIONA PERFECTO
   private async refreshEmailAccess(refreshToken: string): Promise<{ refreshToken: string; accessToken: string } | null> {
     try {
       this.logger.warn('Refreshing email access token due to imminent expiration');
@@ -122,14 +145,16 @@ export class CodeRequestService {
         .header('Prefer', 'outlook.body-content-type="text"')
         .get()) as emailIntrospectionReseponse;
       const emailFiltered = first3Emails.value.filter((email: emailIntrospectionIndividualEmail) => {
-        // const now = new Date();
-        // const receivedDate = new Date(email.receivedDateTime);
-        // const timeDiff = now.getTime() - receivedDate.getTime();
-        // const minutesInMs = 15 * 60 * 1000;
-        // timeDiff <= minutesInMs
+        const now = new Date();
+        const receivedDate = new Date(email.receivedDateTime);
+        const timeDiff = now.getTime() - receivedDate.getTime();
+        const limitMinutesInMs = 16 * 60 * 1000;
         return (
           email.from.emailAddress.address.toLowerCase().includes('netflix') &&
-          (email.subject.toLowerCase().includes('tu código de inicio de sesión') || email.subject.toLowerCase().includes('actualizar hogar'))
+          (email.subject.toLowerCase().includes(interceptorIdentifiers.signInCode.identifier) ||
+            email.subject.toLowerCase().includes(interceptorIdentifiers.actualizarHogar.identifier) ||
+            email.subject.toLowerCase().includes(interceptorIdentifiers.temporalSignIng.identifier)) &&
+          timeDiff <= limitMinutesInMs
         );
       });
       if (emailFiltered.length === 0) throw new NotFoundException(errorCodes.NO_FOUND_EMAIL_AVAILABLE.errorcode);
@@ -142,40 +167,51 @@ export class CodeRequestService {
           emails = await extractRecoveryLink();
           break;
         } catch (error) {
-          this.logger.warn(`Attempt to extract recovery link failed ${error instanceof Error ? error.message : 'Unknown error'}, Retrying in ${delay} ms...`);
+          this.logger.warn(`Attempt to extract netflix emails failed ${error instanceof Error ? error.message : 'Unknown error'}, Retrying in ${delay} ms...`);
           await new Promise((resolve) => setTimeout(resolve, delay));
           continue;
         }
       }
       if (emails.length === 0) throw new BadGatewayException(errorCodes.NO_FOUND_EMAIL_AVAILABLE.errorcode);
     }
-
     return emails;
   }
 
-  // private async extractRecoveryLink(emails: emailIntrospectionIndividualEmail[]): Promise<{ recoveryLink: string; time: Date }> {
-  //   const theMinorEmail = emails.sort((a, b) => new Date(a.receivedDateTime).getTime() - new Date(b.receivedDateTime).getTime())[0];
-  //   const linkMatch = theMinorEmail?.body.content.match(/https?:\/\/\S+/);
-  //   const receivedTime = theMinorEmail?.receivedDateTime;
+  private extractActualizarHogarLink(emails: emailIntrospectionIndividualEmail[]): extractedActualizarHogarLink | null {
+    const theMinorEmail = emails.sort((a, b) => new Date(a.receivedDateTime).getTime() - new Date(b.receivedDateTime).getTime())[0];
+    const linkMatch = theMinorEmail?.body.content.match(interceptorIdentifiers.actualizarHogar.interceptorRegex);
+    const receivedTime = theMinorEmail?.receivedDateTime ?? null;
 
-  //   if (!linkMatch || !receivedTime) throw new NotFoundException('No recovery link found in the email body.');
+    const recoveryLink = linkMatch?.[1] ?? null;
+    if (!recoveryLink || !receivedTime) return null;
+    const time = new Date(receivedTime);
+    this.logger.log(`Recovery link extracted successfully: ${recoveryLink}, time: ${time.getTime()} `);
+    return { recoveryLink, time };
+  }
 
-  //   const recoveryLink = linkMatch[0];
-  //   const time = new Date(receivedTime);
-  //   this.logger.log(`Recovery link extracted successfully: ${recoveryLink}, time: ${time.getTime()} `);
-  //   return { recoveryLink, time };
-  // }
-
-  private extractSignInCode(emails: emailIntrospectionIndividualEmail[]): { signInCode: string | null; time: Date } {
+  private extractSignInCode(emails: emailIntrospectionIndividualEmail[]): extractedSignInCode | null {
     const theMinorEmail = emails.sort((a, b) => new Date(b.receivedDateTime).getTime() - new Date(a.receivedDateTime).getTime())[0];
-    const codeMatch = theMinorEmail?.body.content.match(/Ingresa este código para iniciar sesión\s*(\d{4})\s*Ingresa este código en tu dispositivo/);
-    const receivedTime = theMinorEmail?.receivedDateTime;
+    const codeMatch = theMinorEmail?.body.content.match(interceptorIdentifiers.signInCode.interceptorRegex);
+    const receivedTime = theMinorEmail?.receivedDateTime ?? null;
     const signInCode = codeMatch?.[1] ?? null;
 
-    if (!codeMatch || !receivedTime || !signInCode) throw new NotFoundException('No code found in the email body.');
+    if (!codeMatch || !receivedTime || !signInCode) return null;
 
     const time = new Date(receivedTime);
     this.logger.log(`Sign-in code extracted successfully: ${signInCode}, time: ${time.getTime()} `);
     return { signInCode, time };
+  }
+
+  private extractTemporalSignInCode(emails: emailIntrospectionIndividualEmail[]): extractedSignInLink | null {
+    const theMinorEmail = emails.sort((a, b) => new Date(b.receivedDateTime).getTime() - new Date(a.receivedDateTime).getTime())[0];
+    const codeMatch = theMinorEmail?.body.content.match(interceptorIdentifiers.temporalSignIng.interceptorRegex);
+    const receivedTime = theMinorEmail?.receivedDateTime ?? null;
+    const temporalSignInLink = codeMatch?.[1] ?? null;
+
+    if (!codeMatch || !receivedTime || !temporalSignInLink) return null;
+
+    const time = new Date(receivedTime);
+    this.logger.log(`Temporal Sign-in link extracted successfully: ${temporalSignInLink}, time: ${time.getTime()} `);
+    return { temporalSignInLink, time };
   }
 }
