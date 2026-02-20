@@ -60,7 +60,7 @@ export class CodeRequestService {
 
     const emailRow = await this.databaseInterfaceService.readDelegated(email);
 
-    if (!emailRow) throw new NotFoundException('no email found in database');
+    if (!emailRow) throw new NotFoundException(errorCodes.NO_EMAIL_FOUND_IN_DB.errorcode);
 
     const rowData: matchedEmailRow = {
       email: emailRow.userEmail,
@@ -145,17 +145,16 @@ export class CodeRequestService {
         .header('Prefer', 'outlook.body-content-type="text"')
         .get()) as emailIntrospectionReseponse;
       const emailFiltered = first3Emails.value.filter((email: emailIntrospectionIndividualEmail) => {
-        // const now = new Date();
-        // const receivedDate = new Date(email.receivedDateTime);
-        // const timeDiff = now.getTime() - receivedDate.getTime();
-        // const limitMinutesInMs = 16 * 60 * 1000;
+        const now = new Date();
+        const receivedDate = new Date(email.receivedDateTime);
+        const timeDiff = now.getTime() - receivedDate.getTime();
+        const limitMinutesInMs = 16 * 60 * 1000;
         return (
           email.from.emailAddress.address.toLowerCase().includes('netflix') &&
           (email.subject.toLowerCase().includes(interceptorIdentifiers.signInCode.identifier) ||
             email.subject.toLowerCase().includes(interceptorIdentifiers.actualizarHogar.identifier) ||
-            email.subject.toLowerCase().includes(interceptorIdentifiers.temporalSignIng.identifier))
-          // &&
-          // timeDiff <= limitMinutesInMs
+            email.subject.toLowerCase().includes(interceptorIdentifiers.temporalSignIng.identifier)) &&
+          timeDiff <= limitMinutesInMs
         );
       });
       if (emailFiltered.length === 0) throw new NotFoundException(errorCodes.NO_FOUND_EMAIL_AVAILABLE.errorcode);
