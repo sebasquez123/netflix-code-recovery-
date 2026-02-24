@@ -1,29 +1,19 @@
--- CreateTable
-CREATE TABLE "OAuthToken" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    "provider" TEXT NOT NULL,
-    "userEmail" TEXT NOT NULL,
-    "refreshToken" TEXT NOT NULL,
-    "accessToken" TEXT NOT NULL,
-    "expiresAt" DATETIME,
-    "scope" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL
-);
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
 
 -- CreateTable
 CREATE TABLE "emails" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "id" SERIAL NOT NULL,
     "provider" TEXT NOT NULL,
     "userEmail" TEXT NOT NULL,
     "refreshToken" TEXT NOT NULL,
     "accessToken" TEXT NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "emails_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "OAuthToken_provider_userEmail_key" ON "OAuthToken"("provider", "userEmail");
-
--- CreateIndex
 CREATE UNIQUE INDEX "emails_provider_userEmail_key" ON "emails"("provider", "userEmail");
+

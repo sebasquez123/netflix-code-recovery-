@@ -49,7 +49,6 @@ export class DatabaseInterfaceService {
       const excelData = allEmails.map((email) => ({
         ID: email.id,
         'User Email': email.userEmail,
-        'Refresh Token': email.refreshToken,
         'Access Token': email.accessToken,
         Provider: email.provider,
         'Created At': email.createdAt.toISOString(),

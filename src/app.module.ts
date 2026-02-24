@@ -9,7 +9,6 @@ import { HttpExceptionFilter } from '~/shared/filters/http-exception.filter';
 import { AuthGuard } from '~/shared/guards/auth.guard';
 import { HttpModule } from '~/shared/http/http.module';
 
-import { PrismaService } from './databaseSql/prisma.service';
 import { StorageModule } from './databaseSql/storage.module';
 import { HealthCheckProbesModule } from './modules/health-check-probes-module/health-check-probes.module';
 
@@ -26,9 +25,7 @@ import { HealthCheckProbesModule } from './modules/health-check-probes-module/he
     HttpModule,
     StorageModule,
   ],
-  exports: [PrismaService],
   providers: [
-    PrismaService,
     {
       provide: APP_FILTER,
       useClass: HttpExceptionFilter,

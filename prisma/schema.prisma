@@ -9,23 +9,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
-
-model OAuthToken {
-  id           Int      @id @default(autoincrement())
-  provider     String   
-  userEmail    String
-  refreshToken String
-  accessToken  String
-  expiresAt    DateTime?
-  scope        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@unique([provider, userEmail])
-}
-
 
 model emails {
   id           Int      @id @default(autoincrement())

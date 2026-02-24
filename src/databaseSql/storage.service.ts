@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
-import { PrismaService } from '~/databaseSql/prisma.service';
 import { databaseGetResponse } from '~/modules/sheet-azure-module/interfaces';
 
 export interface UpsertExcelTokenParameters {
@@ -13,7 +13,7 @@ export interface UpsertExcelTokenParameters {
 
 @Injectable()
 export class StorageService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaClient) {}
 
   async upsertEmailData(parameters: UpsertExcelTokenParameters): Promise<void> {
     const { userEmail, refreshToken, accessToken } = parameters;
