@@ -11,7 +11,7 @@ services:
       - "3035:3035"
     environment:
       - NODE_ENV=development
-      - APP_PORT=3035
+      - PORT=3035
       - LOG_LEVEL=trace
     env_file:
       - .env

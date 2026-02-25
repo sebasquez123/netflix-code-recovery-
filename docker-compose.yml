@@ -7,6 +7,8 @@ services:
     restart: unless-stopped
     ports:
       - "3035:3035"
+      - PORT=3035
+      - LOG_LEVEL=trace
     env_file:
       - .env
     environment:
