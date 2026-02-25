@@ -14,7 +14,7 @@ if (missedEnvironmentVariables.length > 0) throw new Error(`${missedEnvironmentV
 
 export default {
   app: {
-    port: Number.parseInt(process.env['PORT'] ?? '3035'),
+    port: Number.parseInt(process.env['APP_PORT'] ?? '3035'),
     appUrl: process.env['APP_URL']!,
     apiUrl: process.env['API_URL']!,
     artifactKey: process.env['ARTIFACT_KEY']!,
